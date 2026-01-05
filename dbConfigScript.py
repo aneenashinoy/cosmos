@@ -1,9 +1,8 @@
 import openpyxl
 import boto3
-from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
 from botocore.config import Config
-import sys,json
+import sys
 import datetime
 
     

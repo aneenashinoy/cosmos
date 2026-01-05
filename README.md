@@ -16,4 +16,6 @@ source_profile=development
 
 For more information follow https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html
 
+# Code Setup
+
 Before running the program run pip install -r requirements.txt
