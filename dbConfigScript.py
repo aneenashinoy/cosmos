@@ -223,6 +223,60 @@ def updateSiocsInventoryEntries(invDict,tableName1,tableName2):
         }   
         createDDBItem(tableName2,siocsJson)
 
+def createCEConfig(ceConfig,geoConfig,tableName1,tableName2):
+    for key in ceConfig:
+        print(ceConfig[key])        
+        createDDBItem(tableName1,ceConfig[key])
+    for key in geoConfig:
+        print(geoConfig[key])
+        createDDBItem(tableName2,geoConfig[key])
+
+def createCEOrderConfig(ceOrderConfig,tableName1,tableName2):
+    orderCEKey = "FL_CE_Order"
+    for key in ceOrderConfig:
+        brandList = queryDDBItem(tableName1,orderCEKey,"brands")
+        if key in brandList['brands']:
+            print("Brand code is added in the FL_CE_Order entry")
+        else:
+            updateBrandExpr = 'SET brands=:val1'        
+            expressionValues = {':val1':brandList['brands']+","+key}
+            updateDict = updateBrandExpr, expressionValues
+            updateDDBItem(tableName1,{"id":orderCEKey},updateDict)
+        
+        createDDBItem(tableName2,ceOrderConfig[key])
+def createCEReturnOrderConfig(ceReturnOrderConfig,tableName1,tableName2):
+    returnOrderCEKey = "FL_CE_Return"
+    for key in ceReturnOrderConfig:
+        brandList = queryDDBItem(tableName1,returnOrderCEKey,"brands")
+        if key in brandList['brands']:
+            print("Brand code is added in the FL_CE_Return entry")
+        else:
+            updateBrandExpr = 'SET brands=:val1'        
+            expressionValues = {':val1':brandList['brands']+","+key}
+            updateDict = updateBrandExpr, expressionValues
+            updateDDBItem(tableName1,{"id":returnOrderCEKey},updateDict)
+        
+        createDDBItem(tableName2,ceReturnOrderConfig[key])
+def createCEProductFeedConfig(ceProductFeedConfig,tableName1,tableName2):
+    productKey="CE_P_D"
+    for key in ceProductFeedConfig:
+        brandList = queryDDBItem(tableName1,productKey,"brands")
+        if key in brandList['brands']:
+            print("Brand code is added in the CE_P_D entry")
+        else:
+            updateBrandExpr = 'SET brands=:val1'        
+            expressionValues = {':val1':brandList['brands']+","+key}
+            updateDict = updateBrandExpr, expressionValues
+            updateDDBItem(tableName1,{"id":productKey},updateDict)
+        
+        createDDBItem(tableName2,ceProductFeedConfig[key])
+def createCEPriceFeedConfig(cePriceFeedConfig,tableName):
+    for key in cePriceFeedConfig:
+        createDDBItem(tableName,cePriceFeedConfig[key])
+def createCEInventoryFeedConfig(ceInventoryFeedConfig,tableName):
+    for key in ceInventoryFeedConfig:
+        createDDBItem(tableName,ceInventoryFeedConfig[key])
+
 def main():
     # Read data from each sheet and iterate through the entries to create DDB entries
 
@@ -238,6 +292,13 @@ def main():
     invFarfetchDict={}
     invRedAntDict={}
     invSiocsDict={}
+    ceConfig={}
+    geoConfig={}
+    ceOrderConfig={}
+    ceReturnOrderConfig={}
+    ceProductFeedConfig={}
+    cePriceFeedConfig={}
+    ceInventoryFeedConfig={}
 
     for sheet in wb:
         if(sheet.title=='Retailer'):
@@ -421,6 +482,116 @@ def main():
                 for i,col in enumerate(sheet.iter_cols(min_col=2)):
                     colName = col[0].value
                     invSiocsDict[row[0].value].append({colName:row[i+1].value})
+        
+        if(sheet.title=='CE'): 
+            for row in sheet.iter_rows(min_row=2):
+                ceConfig[row[0].value]={}
+                for i,col in enumerate(sheet.iter_cols(min_col=1)):
+                    colName = col[0].value
+                    ceConfig[row[0].value].update({colName:row[i].value})
+
+        if(sheet.title=='GeoCode'): 
+            for row in sheet.iter_rows(min_row=2):
+                geoConfig[row[0].value]={}
+                for i,col in enumerate(sheet.iter_cols(min_col=1)):
+                    colName = col[0].value
+                    geoConfig[row[0].value].update({colName:row[i].value})
+
+        if(sheet.title=='CEOrder'): 
+            for row in sheet.iter_rows(min_row=2):
+                ceOrderConfig[row[0].value]={}
+                marketPlaceCols = []
+                for i,col in enumerate(sheet.iter_cols(min_col=1)):
+                    colName = col[0].value
+                    if "_" in colName:
+                        nameArr = colName.split("_")
+                        marketplace = nameArr[0]
+                        destnColumn = nameArr[1]
+                        marketPlaceCols.append({destnColumn:row[i].value})
+                    else:
+                        ceOrderConfig[row[0].value].update({colName:row[i].value})
+                sourceJson = {}
+                for source in marketPlaceCols:
+                    sourceJson.update(source)
+                ceOrderConfig.get(row[0].value).update({marketplace:sourceJson})
+
+        if(sheet.title=='CEReturn'): 
+            for row in sheet.iter_rows(min_row=2):
+                ceReturnOrderConfig[row[0].value]={}
+                marketPlaceCols = []
+                for i,col in enumerate(sheet.iter_cols(min_col=1)):
+                    colName = col[0].value
+                    if "_" in colName:
+                        nameArr = colName.split("_")
+                        marketplace = nameArr[0]
+                        destnColumn = nameArr[1]
+                        marketPlaceCols.append({destnColumn:row[i].value})
+                    else:
+                        ceReturnOrderConfig[row[0].value].update({colName:row[i].value})
+                sourceJson = {}
+                for source in marketPlaceCols:
+                    sourceJson.update(source)
+                ceReturnOrderConfig[row[0].value].update({marketplace:sourceJson})
+
+        if(sheet.title=='CEProduct'): 
+            for row in sheet.iter_rows(min_row=2):
+                ceProductFeedConfig[row[0].value]={}
+                childCols=[]
+                for i,col in enumerate(sheet.iter_cols(min_col=1)):
+                    colName = col[0].value
+                    if "_" in colName: 
+                        nameArr = colName.split("_")
+                        header = nameArr[0]
+                        childCol = nameArr[1]
+                        childCols.append({childCol:row[i].value})
+                    elif row[i].value!=None and type(row[i].value)==datetime.datetime:
+                        ceProductFeedConfig[row[0].value].update({colName:str(row[i].value)})
+                    elif row[i].value!=None:
+                        ceProductFeedConfig[row[0].value].update({colName:row[i].value})
+                sourceJson = {}
+                for source in childCols:
+                    sourceJson.update(source)
+                ceProductFeedConfig[row[0].value].update({header:sourceJson})
+        
+        if(sheet.title=='CEPrice'): 
+            for row in sheet.iter_rows(min_row=2):
+                cePriceFeedConfig[row[0].value]={}
+                childCols=[]
+                for i,col in enumerate(sheet.iter_cols(min_col=1)):
+                    colName = col[0].value
+                    if "_" in colName: 
+                        nameArr = colName.split("_")
+                        header = nameArr[0]
+                        childCol = nameArr[1]
+                        childCols.append({childCol:row[i].value})
+                    elif row[i].value!=None and type(row[i].value)==datetime.datetime:
+                        cePriceFeedConfig[row[0].value].update({colName:str(row[i].value)})
+                    elif row[i].value!=None:
+                        cePriceFeedConfig[row[0].value].update({colName:row[i].value})
+                sourceJson = {}
+                for source in childCols:
+                    sourceJson.update(source)
+                cePriceFeedConfig[row[0].value].update({header:sourceJson})
+
+        if(sheet.title=='CEInventory'): 
+            for row in sheet.iter_rows(min_row=2):
+                ceInventoryFeedConfig[row[0].value]={}
+                childCols=[]
+                for i,col in enumerate(sheet.iter_cols(min_col=1)):
+                    colName = col[0].value
+                    if "_" in colName: 
+                        nameArr = colName.split("_")
+                        header = nameArr[0]
+                        childCol = nameArr[1]
+                        childCols.append({childCol:row[i].value})
+                    elif row[i].value!=None and type(row[i].value)==datetime.datetime:
+                        ceInventoryFeedConfig[row[0].value].update({colName:str(row[i].value)})
+                    elif row[i].value!=None:
+                        ceInventoryFeedConfig[row[0].value].update({colName:row[i].value})
+                sourceJson = {}
+                for source in childCols:
+                    sourceJson.update(source)
+                ceInventoryFeedConfig[row[0].value].update({header:sourceJson})
 
     commandArgs = sys.argv[1:]
     for args in commandArgs:
@@ -466,6 +637,34 @@ def main():
             print("Create or Update warehouse details")
             tableName = 'wh-fulfilment-'+env
             updateWmsStoreEntries(wmsDict,prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict),tableName)
+        if args in ("ceConfig"):
+            print("Create or Update ce config details")
+            tableName1 = 'ce-config-'+env
+            tableName2 = 'geocoding-config-'+env
+            createCEConfig(ceConfig,geoConfig,tableName1,tableName2)
+        if args in ("ceOrder"):
+            print("Create or Update ce order config details")
+            tableName1 = 'product-batch-process-'+env
+            tableName2 = 'product-brand-details-'+env
+            createCEOrderConfig(ceOrderConfig,tableName1,tableName2)
+        if args in ("ceReturnOrder"):
+            print("Create or Update ce return order config details")
+            tableName1 = 'product-batch-process-'+env
+            tableName2 = 'product-brand-details-'+env
+            createCEReturnOrderConfig(ceReturnOrderConfig,tableName1,tableName2)
+        if args in ("ceProduct"):
+            print("Create or Update ce product feed details")
+            tableName1 = 'product-batch-process-'+env
+            tableName2 = 'product-brand-details-'+env
+            createCEProductFeedConfig(ceProductFeedConfig,tableName1,tableName2)
+        if args in ("cePrice"):
+            print("Create or Update ce price feed details")
+            tableName = 'product-brand-details-'+env
+            createCEPriceFeedConfig(cePriceFeedConfig,tableName)
+        if args in ("ceInventory"):
+            print("Create or Update ce inventory feed details")
+            tableName = 'product-brand-details-'+env
+            createCEInventoryFeedConfig(ceInventoryFeedConfig,tableName)
 
     print(f"Environment",env)
 
