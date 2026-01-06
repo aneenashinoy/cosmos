@@ -22,6 +22,7 @@ Before running the program run **pip install -r requirements.txt**
 
 # Command Parameters
 py dbConfig.py {env} {params}
+
 {env}  
 * dev for DEV environment
 * test for SIT environment
