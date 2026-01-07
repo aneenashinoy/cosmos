@@ -7,7 +7,7 @@ Follow the following pattern
 # In ~/.aws/credentials:
 [development]
 aws_access_key_id=foo
-aws_access_key_id=bar
+aws_secret_access_key=bar
 
 # In ~/.aws/config
 [profile crossaccount]

@@ -38,49 +38,51 @@ def queryDDBItem(tableName,tableId,resultField):
         print("The key is not present")
         return ""
 
-def prepareRetailerJson(retailerDict,eaUpdatesDict,mkUpdatesDict):
+def prepareRetailerJson(retailerDict,eaUpdatesDict,mkUpdatesDict,brand):
     retailer={}
     eaJson={}
     mkJson={}
     if len(eaUpdatesDict)>0: 
         for key,val in eaUpdatesDict.items():
-            redAntFlag = val['RedAnt'] if val.get('RedAnt')!=None else "False"
-            sfccFlag = val['SFCC'] if val.get('SFCC')!=None else "False"
-            sfscFlag = val['SFSC'] if val.get('SFSC')!=None else "False"
-            gbqFlag = val['GBQ'] if val.get('GBQ')!=None else "False"
-            
-            eaJson.update({
-                key : {
-                        "sendOrderStatusToRedAnt":redAntFlag,                            
-                        "sendOrderStatusToSFCC": sfccFlag,                            
-                        "sendOrderStatusToSFSC": sfscFlag,                            
-                        "sendOrderStatusToGBQ": gbqFlag,
-                        "sendReturnOrderStatusToRedAnt": redAntFlag,
-                        "sendReturnOrderStatusToSFCC": sfccFlag,
-                        "sendReturnOrderStatusToSFSC": sfscFlag,
-                        "sendReturnOrderStatusToGBQ": gbqFlag
-                    }                            
-                }                    
-            )
+            if(key!='DEFAULT'):
+                redAntFlag = val['RedAnt'] if val.get('RedAnt')!=None else "False"
+                sfccFlag = val['SFCC'] if val.get('SFCC')!=None else "False"
+                sfscFlag = val['SFSC'] if val.get('SFSC')!=None else "False"
+                gbqFlag = val['GBQ'] if val.get('GBQ')!=None else "False"
+                
+                eaJson.update({
+                    key : {
+                            "sendOrderStatusToRedAnt":redAntFlag,                            
+                            "sendOrderStatusToSFCC": sfccFlag,                            
+                            "sendOrderStatusToSFSC": sfscFlag,                            
+                            "sendOrderStatusToGBQ": gbqFlag,
+                            "sendReturnOrderStatusToRedAnt": redAntFlag,
+                            "sendReturnOrderStatusToSFCC": sfccFlag,
+                            "sendReturnOrderStatusToSFSC": sfscFlag,
+                            "sendReturnOrderStatusToGBQ": gbqFlag
+                        }                            
+                    }                    
+                )
         eaJson.update({"sendOrderHistoryToXstore":  eaUpdatesDict['DEFAULT']['Xstore']})
     elif len(mkUpdatesDict)>0:
         for key,val in mkUpdatesDict.items():
-            redAntFlag = val['RedAnt'] if val.get('RedAnt')!=None else "False"
-            sfccFlag = val['SFCC'] if val.get('SFCC')!=None else "False"
-            sfscFlag = val['SFSC'] if val.get('SFSC')!=None else "False"
-            gbqFlag = val['GBQ'] if val.get('GBQ')!=None else "False"
-            mkJson.update({
-                key : {
-                        "sendOrderStatusToRedAnt": redAntFlag,                            
-                        "sendOrderStatusToSFCC":  sfccFlag,                            
-                        "sendOrderStatusToSFSC":  sfscFlag,                            
-                        "sendOrderStatusToGBQ":  gbqFlag,
-                        "sendReturnOrderStatusToRedAnt":  redAntFlag,
-                        "sendReturnOrderStatusToSFCC":  sfccFlag,
-                        "sendReturnOrderStatusToSFSC":  sfscFlag,
-                        "sendReturnOrderStatusToGBQ":  gbqFlag 
-                }                    
-            })
+            if(key!='DEFAULT'):
+                redAntFlag = val['RedAnt'] if val.get('RedAnt')!=None else "False"
+                sfccFlag = val['SFCC'] if val.get('SFCC')!=None else "False"
+                sfscFlag = val['SFSC'] if val.get('SFSC')!=None else "False"
+                gbqFlag = val['GBQ'] if val.get('GBQ')!=None else "False"
+                mkJson.update({
+                    key : {
+                            "sendOrderStatusToRedAnt": redAntFlag,                            
+                            "sendOrderStatusToSFCC":  sfccFlag,                            
+                            "sendOrderStatusToSFSC":  sfscFlag,                            
+                            "sendOrderStatusToGBQ":  gbqFlag,
+                            "sendReturnOrderStatusToRedAnt":  redAntFlag,
+                            "sendReturnOrderStatusToSFCC":  sfccFlag,
+                            "sendReturnOrderStatusToSFSC":  sfscFlag,
+                            "sendReturnOrderStatusToGBQ":  gbqFlag 
+                    }                    
+                })
         mkJson.update({"sendOrderHistoryToXstore":  mkUpdatesDict['DEFAULT']['Xstore']})
        
     retailer = {
@@ -91,6 +93,9 @@ def prepareRetailerJson(retailerDict,eaUpdatesDict,mkUpdatesDict):
         "retailer_username": retailerDict['retailerUsername'],
         "brand":brand
     }
+
+    print(eaJson)
+    print(mkJson)
 
     if len(eaUpdatesDict)>0:
         retailer.update({"sourceBasedRouting":{"endless_aisle":eaJson}})
@@ -600,68 +605,69 @@ def main():
         if args in ("r","retailer"):
             print("Create or update retailer details")
             tableName = 'fluent-config-'+env
-            createDDBItem(tableName,prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict))
+            print(prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict,brand))
+            #createDDBItem(tableName,prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict))
             fluentDict = {storeDict['brandName']:retailerDict['retailerId']}
-            updateDDBItem(tableName,{"id":{"S":"fluent_brands"}},fluentDict)    
-        if args in ("s","store"):
+            #updateDDBItem(tableName,{"id":{"S":"fluent_brands"}},fluentDict)    
+        elif args in ("s","store"):
             print("Update store details")
             tableName = 'store-lookup-'+env
             updateEcomStoreEntries(storeDict,retailerDict,tableName)
-        if args in ("psp","payment"):
+        elif args in ("psp","payment"):
             print("Create or Update payment details")
             tableName = 'payment-master-'+env
             updatePaymentEntries(paymentDict,tableName)
-        if args in ("p","product"):
+        elif args in ("p","product"):
             print("Create or Update product details")
             tableName1 = 'product-batch-process-'+env
             tableName2 = 'product-brand-details-'+env
             updateProductEntries(productDict,tableName1,tableName2)
-        if args in ("sfcc-inv","SFCC inventory"):
+        elif args in ("sfcc-inv","SFCC inventory"):
             print("Create or Update SFCC inventory details")
             tableName = 'product-brand-details-'+env
             updateInventoryEntries(invSfccDict,tableName)
-        if args in ("farfetch-inv","Farfetch inventory"):
+        elif args in ("farfetch-inv","Farfetch inventory"):
             print("Create or Update Farfetch inventory details")
             tableName = 'product-brand-details-'+env
             updateInventoryEntries(invFarfetchDict,tableName)
-        if args in ("redant-inv","RedAnt inventory"):
+        elif args in ("redant-inv","RedAnt inventory"):
             print("Create or Update RedAnt inventory details")
             tableName = 'product-brand-details-'+env
             updateInventoryEntries(invRedAntDict,tableName)
-        if args in ("siocs-inv","SIOCS inventory"):
+        elif args in ("siocs-inv","SIOCS inventory"):
             print("Create or Update SIOCS inventory details")
             tableName1 = 'siocs-location-brand-snapshot-'+env
             tableName2 = 'siocs-brand-dtl-snapshot-'+env
             updateSiocsInventoryEntries(invSiocsDict,tableName1,tableName2)
-        if args in ("wms","warehouse"):
+        elif args in ("wms","warehouse"):
             print("Create or Update warehouse details")
             tableName = 'wh-fulfilment-'+env
             updateWmsStoreEntries(wmsDict,prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict),tableName)
-        if args in ("ceConfig"):
+        elif args in ("ceConfig"):
             print("Create or Update ce config details")
             tableName1 = 'ce-config-'+env
             tableName2 = 'geocoding-config-'+env
             createCEConfig(ceConfig,geoConfig,tableName1,tableName2)
-        if args in ("ceOrder"):
+        elif args in ("ceOrder"):
             print("Create or Update ce order config details")
             tableName1 = 'product-batch-process-'+env
             tableName2 = 'product-brand-details-'+env
             createCEOrderConfig(ceOrderConfig,tableName1,tableName2)
-        if args in ("ceReturnOrder"):
+        elif args in ("ceReturnOrder"):
             print("Create or Update ce return order config details")
             tableName1 = 'product-batch-process-'+env
             tableName2 = 'product-brand-details-'+env
             createCEReturnOrderConfig(ceReturnOrderConfig,tableName1,tableName2)
-        if args in ("ceProduct"):
+        elif args in ("ceProduct"):
             print("Create or Update ce product feed details")
             tableName1 = 'product-batch-process-'+env
             tableName2 = 'product-brand-details-'+env
             createCEProductFeedConfig(ceProductFeedConfig,tableName1,tableName2)
-        if args in ("cePrice"):
+        elif args in ("cePrice"):
             print("Create or Update ce price feed details")
             tableName = 'product-brand-details-'+env
             createCEPriceFeedConfig(cePriceFeedConfig,tableName)
-        if args in ("ceInventory"):
+        elif args in ("ceInventory"):
             print("Create or Update ce inventory feed details")
             tableName = 'product-brand-details-'+env
             createCEInventoryFeedConfig(ceInventoryFeedConfig,tableName)
