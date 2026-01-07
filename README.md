@@ -44,3 +44,5 @@ py dbConfig.py {env} {params}
 * ceProduct - creates/updates CE product details
 * cePrice - creates/updates CE price details
 * ceInventory - creates/updates CE inventory details
+
+Note:- Install openpyxl and aws-shell using pip install if any issues
