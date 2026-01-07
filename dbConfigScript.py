@@ -14,10 +14,17 @@ def updateDDBItem(tableName,keyJson,dict):
     print(f"Table Name: {tableName} Key: {keyJson} Update JSON: {dict}")
     table = dynamodb.Table(tableName)
     try:
-        response = table.update_item(Key=keyJson,
-                        UpdateExpression=dict[0], 
-                        ExpressionAttributeValues=dict[1],
-                        ReturnValues="UPDATED_NEW")
+        if(len(dict)>2):
+            response = table.update_item(Key=keyJson,
+                            UpdateExpression=dict[0], 
+                            ExpressionAttributeValues=dict[1],
+                            ExpressionAttributeNames=dict[2],
+                            ReturnValues="UPDATED_NEW")
+        else:
+            response = table.update_item(Key=keyJson,
+                            UpdateExpression=dict[0], 
+                            ExpressionAttributeValues=dict[1],
+                            ReturnValues="UPDATED_NEW")
     except ClientError as err:
         print(err)
         print(f"Key {keyJson} not present in table {tableName}")
@@ -123,9 +130,9 @@ def updateEcomStoreEntries(storeDict,retailerDict,tableName):
 def prepareStoreJson(retailerDict,countryCode,brandName,redAnt):
 
     updateStoreExpr = 'SET inputData.retailer_id=:val1,inputData.retailer_password=:val2,inputData.retailer_username=:val3,' \
-                        'inputData.fluent_OMS=:val4,inputData.hybrid_OMS=:val5,inputData.store=:val6,inputData.country_code=:val7'
+                        'inputData.fluent_OMS=:val4,inputData.hybrid_OMS=:val5,inputData.#s=:val6,inputData.country_code=:val7'
     
-    #expressionAttrValues= {'#s':'store'}
+    expressionAttrValues= {'#s':'store'}
     
     expressionValues = {':val1':retailerDict['retailerId'],':val2':retailerDict['retailerPwd'],':val3':retailerDict['retailerUsername'],
                         ":val4":"Y",":val5":"N",":val6":brandName,":val7":countryCode}
@@ -135,7 +142,7 @@ def prepareStoreJson(retailerDict,countryCode,brandName,redAnt):
     
         expressionValues.update({':val8':brand,':val9':'Y'})
         
-    return updateStoreExpr, expressionValues#,expressionAttrValues
+    return updateStoreExpr, expressionValues,expressionAttrValues
 
 def updateWmsStoreEntries(wmsDict,retailerDict,tableName):
     print(retailerDict)
