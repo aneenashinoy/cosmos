@@ -155,11 +155,11 @@ def updateWmsStoreEntries(wmsDict,retailerDict,tableName):
 def prepareWmsStoreJson(retailerDict,wm9Facility,wm9Storer):
 
     updateStoreExpr = 'SET inputData.retailer_id=:val1,inputData.retailer_password=:val2,inputData.retailer_username=:val3,' \
-                        'inputData.Fluent_OMS=:val4,inputData.hybrid_OMS=:val5'
+                        'inputData.Fluent_OMS=:val4,inputData.hybrid_OMS=:val5,inputData.fluent_AND_RU_OMS="val6'
     
     
     expressionValues = {':val1':retailerDict['id'],':val2':retailerDict['retailer_password'],':val3':retailerDict['retailer_username'],
-                        ":val4":"Y",":val5":"N"}
+                        ":val4":"Y",":val5":"N",":val6":"Y"}
     
     if(wm9Facility!=None):
         updateStoreExpr += 'inputData.wm9_facility=:val6,inputData.wm9_storer=:val7'
