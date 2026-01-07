@@ -94,9 +94,6 @@ def prepareRetailerJson(retailerDict,eaUpdatesDict,mkUpdatesDict,brand):
         "brand":brand
     }
 
-    print(eaJson)
-    print(mkJson)
-
     if len(eaUpdatesDict)>0:
         retailer.update({"sourceBasedRouting":{"endless_aisle":eaJson}})
     elif len(mkUpdatesDict)>0:
@@ -106,6 +103,11 @@ def prepareRetailerJson(retailerDict,eaUpdatesDict,mkUpdatesDict,brand):
             retailer.update({"sourceBasedRouting":{"marketplace":mkJson}})
 
     return retailer
+
+def prepareFluentBrands(brand,retailerId):
+    updateFluentBrand = 'SET inputData.'+brand+'=:val1'
+    expressionValues = {':val1':retailerId}
+    return updateFluentBrand,expressionValues
 
 def updateEcomStoreEntries(storeDict,retailerDict,tableName):
     for key,value in storeDict.items():
@@ -606,9 +608,8 @@ def main():
             print("Create or update retailer details")
             tableName = 'fluent-config-'+env
             #print(prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict,brand))
-            createDDBItem(tableName,prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict))
-            fluentDict = {brand:retailerDict['retailerId']}
-            updateDDBItem(tableName,{"id":{"S":"fluent_brands"}},fluentDict)    
+            createDDBItem(tableName,prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict,brand))
+            updateDDBItem(tableName,{"id":"fluent_brands"},prepareFluentBrands(brand,retailerDict['retailerId']))    
         elif args in ("s","store"):
             print("Update store details")
             tableName = 'store-lookup-'+env
