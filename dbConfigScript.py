@@ -605,10 +605,10 @@ def main():
         if args in ("r","retailer"):
             print("Create or update retailer details")
             tableName = 'fluent-config-'+env
-            print(prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict,brand))
-            #createDDBItem(tableName,prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict))
-            fluentDict = {storeDict['brandName']:retailerDict['retailerId']}
-            #updateDDBItem(tableName,{"id":{"S":"fluent_brands"}},fluentDict)    
+            #print(prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict,brand))
+            createDDBItem(tableName,prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict))
+            fluentDict = {brand:retailerDict['retailerId']}
+            updateDDBItem(tableName,{"id":{"S":"fluent_brands"}},fluentDict)    
         elif args in ("s","store"):
             print("Update store details")
             tableName = 'store-lookup-'+env
