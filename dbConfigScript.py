@@ -650,7 +650,7 @@ def main():
         elif args in ("wms","warehouse"):
             print("Create or Update warehouse details")
             tableName = 'wh-fulfilment-'+env
-            updateWmsStoreEntries(wmsDict,prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict),tableName)
+            updateWmsStoreEntries(wmsDict,prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict,brand),tableName)
         elif args in ("ceConfig"):
             print("Create or Update ce config details")
             tableName1 = 'ce-config-'+env
