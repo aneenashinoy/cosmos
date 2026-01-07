@@ -145,20 +145,20 @@ def prepareStoreJson(retailerDict,countryCode,brandName,redAnt):
     return updateStoreExpr, expressionValues,expressionAttrValues
 
 def updateWmsStoreEntries(wmsDict,retailerDict,tableName):
-    print(retailerDict)
     for key,value in wmsDict.items():
         for item in value:         
-            print(prepareWmsStoreJson(retailerDict,item["wm9_facility"],item["wm9_storer"]))     
-            #updateDDBItem(tableName,{"id":item["id"]},prepareWmsStoreJson(retailerDict,item["WmsCountryCode"],storeDict['brandName'],'N'))
+            #print(prepareWmsStoreJson(retailerDict,item["wm9_facility"],item["wm9_storer"]))   
+            updateDDBItem(tableName,{"id":item["id"]},prepareWmsStoreJson(retailerDict,item["wm9_facility"],item["wm9_storer"]))
+            
 
 
 def prepareWmsStoreJson(retailerDict,wm9Facility,wm9Storer):
 
     updateStoreExpr = 'SET inputData.retailer_id=:val1,inputData.retailer_password=:val2,inputData.retailer_username=:val3,' \
-                        'inputData.Fluent_OMS=:val4,inputData.hybrid_OMS=:val5,inputData.fluent_AND_RU_OMS="val6'
+                        'inputData.Fluent_OMS=:val4,inputData.hybrid_OMS=:val5,inputData.fluent_AND_RU_OMS=:val6'
     
     
-    expressionValues = {':val1':retailerDict['id'],':val2':retailerDict['retailer_password'],':val3':retailerDict['retailer_username'],
+    expressionValues = {':val1':retailerDict['retailerId'],':val2':retailerDict['retailerPwd'],':val3':retailerDict['retailerUsername'],
                         ":val4":"Y",":val5":"N",":val6":"Y"}
     
     if(wm9Facility!=None):
@@ -650,7 +650,7 @@ def main():
         elif args in ("wms","warehouse"):
             print("Create or Update warehouse details")
             tableName = 'wh-fulfilment-'+env
-            updateWmsStoreEntries(wmsDict,prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict,brand),tableName)
+            updateWmsStoreEntries(wmsDict,retailerDict,tableName)
         elif args in ("ceConfig"):
             print("Create or Update ce config details")
             tableName1 = 'ce-config-'+env
