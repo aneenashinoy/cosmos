@@ -44,6 +44,18 @@ def queryDDBItem(tableName,tableId,resultField):
     except:
         print("The key is not present")
         return ""
+    
+def querySiocsStoreDDBItem(tableName,tableId,resultField):
+    table = dynamodb.Table(tableName)
+    try:
+        response = table.get_item(
+            Key = {'location':str(tableId)},
+            ProjectionExpression  = resultField
+        )
+        return response['Item']
+    except:
+        print(f"The siocs location is not present ",tableId)
+        return ""
 
 def prepareRetailerJson(retailerDict,eaUpdatesDict,mkUpdatesDict,brand):
     retailer={}
@@ -209,29 +221,47 @@ def updateInventoryEntries(invDict,tableName):
     for key in invDict:
         createDDBItem(tableName,invDict[key])
 
-def updateSiocsInventoryEntries(invDict,tableName1,tableName2):
+def updateSiocsInventoryEntries(invDict,tableName,tableName1,tableName2):
     print("Update SIOCS  Entries") 
     for storeKey,storeVal in invDict.items():
-        brand = storeVal[0]["brandName"]
-        brandNames = queryDDBItem(tableName1,storeKey,'brandNames')
-        if brand in brandNames:
-            print(f"Brand code is added in the "+{}+" entry")
+        #Update location brand detail
+        brandNames = querySiocsStoreDDBItem(tableName,storeKey,'brandNames')
+        if storeVal[0]['brand'] in brandNames['brandNames']:
+            print(f"Brand code is added in the "+brandNames['brandNames']+" entry")
         else:
             if(not brandNames):
                 brandJson={
-                    "location":brand,
-                    "brandNames":brand
+                    "location":storeKey,
+                    "brandNames":storeVal[0]['brand']
+                }
+                createDDBItem(tableName,brandJson)
+            else:
+                updateStoreExpr = 'SET brandNames=:val1'        
+                expressionValues = {':val1':brandNames['brandNames']+','+storeVal[0]['brand']}
+                updateDict = updateStoreExpr, expressionValues
+                updateDDBItem(tableName,{"location":str(storeKey)},updateDict)
+
+        # Update location brand or location specific key entries
+        brandNames = querySiocsStoreDDBItem(tableName1,storeKey,'brandNames')
+        if storeVal[1]['brandName'] in brandNames['brandNames']:
+            print(f"Brand code is added in the "+brandNames['brandNames']+" entry")
+        else:
+            if(not brandNames):
+                brandJson={
+                    "location":storeKey,
+                    "brandNames":storeVal[1]['brandName']
                 }
                 createDDBItem(tableName1,brandJson)
             else:
                 updateStoreExpr = 'SET brandNames=:val1'        
-                expressionValues = {':val1':brandNames['brandNames']+","+brand}
+                expressionValues = {':val1':brandNames['brandNames']+","+storeVal[1]['brandName']}
                 updateDict = updateStoreExpr, expressionValues
-                updateDDBItem(tableName1,{"id":storeKey},updateDict)
+                updateDDBItem(tableName1,{"location":str(storeKey)},updateDict)
 
+        # Update brand details snapshot
         siocsJson={
-            "brandName":brand,
-            "fileProcessingDay":storeVal[1]["fileProcessingDay"],
+            "brandName":storeVal[1]['brandName'],
+            "fileProcessingDay":storeVal[2]["fileProcessingDay"],
             "location":storeKey,
             "outputType":"json"
         }   
@@ -644,9 +674,10 @@ def main():
             updateInventoryEntries(invRedAntDict,tableName)
         elif args in ("siocs-inv","SIOCS inventory"):
             print("Create or Update SIOCS inventory details")
+            tableName = "siocs-location-brand-dtl-"+env
             tableName1 = 'siocs-location-brand-snapshot-'+env
             tableName2 = 'siocs-brand-dtl-snapshot-'+env
-            updateSiocsInventoryEntries(invSiocsDict,tableName1,tableName2)
+            updateSiocsInventoryEntries(invSiocsDict,tableName,tableName1,tableName2)
         elif args in ("wms","warehouse"):
             print("Create or Update warehouse details")
             tableName = 'wh-fulfilment-'+env
