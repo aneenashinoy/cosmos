@@ -4,6 +4,7 @@ from botocore.exceptions import ClientError
 from botocore.config import Config
 import sys
 import datetime
+import pandas as pd
 
     
 def createDDBItem(tableName,json):
@@ -11,7 +12,7 @@ def createDDBItem(tableName,json):
     table.put_item(Item=json)
 
 def updateDDBItem(tableName,keyJson,dict):
-    print(f"Table Name: {tableName} Key: {keyJson} Update JSON: {dict}")
+    print(f"Update Table Name: {tableName} Key: {keyJson} Update JSON: {dict}")
     table = dynamodb.Table(tableName)
     try:
         if(len(dict)>2):
@@ -27,35 +28,24 @@ def updateDDBItem(tableName,keyJson,dict):
                             ReturnValues="UPDATED_NEW")
     except ClientError as err:
         print(err)
-        print(f"Key {keyJson} not present in table {tableName}")
     else:
         return response["Attributes"]
 
 
 
-def queryDDBItem(tableName,tableId,resultField):
+def queryDDBItem(tableName,tableId,resultField,keyField):
+    print(f'Query ',tableName,' with the id ',keyField,' and the tableId as ',tableId)
     table = dynamodb.Table(tableName)
     try:
         response = table.get_item(
-            Key = {'id':tableId},
+            Key = {keyField:tableId},
             ProjectionExpression  = resultField
         )
         return response['Item']
     except:
-        print("The key is not present")
+        print(f'The ',keyField,' is not present')
         return ""
     
-def querySiocsStoreDDBItem(tableName,tableId,resultField):
-    table = dynamodb.Table(tableName)
-    try:
-        response = table.get_item(
-            Key = {'location':str(tableId)},
-            ProjectionExpression  = resultField
-        )
-        return response['Item']
-    except:
-        print(f"The siocs location is not present ",tableId)
-        return ""
 
 def prepareRetailerJson(retailerDict,eaUpdatesDict,mkUpdatesDict,brand):
     retailer={}
@@ -128,16 +118,78 @@ def prepareFluentBrands(brand,retailerId):
     expressionValues = {':val1':retailerId}
     return updateFluentBrand,expressionValues
 
-def updateEcomStoreEntries(storeDict,retailerDict,tableName):
+def createFluentBrands(brand,retailerId):
+    brandJson={
+        'inputData':{
+            brand:retailerId
+        }
+    }
+    return brandJson
+
+def getFluentBrands(tableName,tableId,retailerId,brand):    
+    resp = queryDDBItem(tableName,tableId,"inputData","id")
+    if len(resp)>0:
+        updateDDBItem(tableName,{"id":"fluent_brands"},prepareFluentBrands(brand,retailerId))
+    else:
+        createDDBItem(tableName,createFluentBrands(brand,retailerId))
+
+def getFluentGiftCardConfig(tableName,tableId,giftCardDict,brand):
+    resp = queryDDBItem(tableName,tableId,"egcProgramGroupName","id")
+    if len(resp)>0:
+        updateDDBItem(tableName,{"id":"fluent_giftcard_config"},prepareFluentGiftCardConfig(giftCardDict,brand))
+    else:
+        createDDBItem(tableName,createFluentGiftCardConfig(giftCardDict,brand))
+
+def prepareFluentGiftCardConfig(giftCardDict,brand):
+    iter=1
+    giftCardKeyExpr = 'SET '
+    expressionValues = {}
+    for key,value in giftCardDict.items():
+        if key=='egcProgramGroupName':
+            for item in giftCardDict[key]:
+                val = 'val'+str(iter)
+                giftCardKeyExpr += key+'.'+brand.lower()+'_'+item['egcCtryCode']+'=:'+val+','
+                expressionValues.update({':'+val:item['egcPgmGroupName']})
+                iter+=1
+        elif key=='egcLocations':
+            giftCardKeyExpr += key+'.'+brand.lower()+'=:val'+str(iter)+','
+            expressionValues.update({':val'+str(iter):value})
+            iter+=1
+        elif key=='epgcLocations':
+            giftCardKeyExpr += key+'.'+brand.lower()+'=:val'+str(iter)+','
+            expressionValues.update({':val'+str(iter):value})
+            iter+=1
+        else:
+            giftCardKeyExpr += key+'=:val'+str(iter)+','
+            expressionValues.update({':val'+str(iter):value})
+            iter+=1
+    giftCardKeyExpr=giftCardKeyExpr[:giftCardKeyExpr.rindex(',')]
+    return giftCardKeyExpr,expressionValues
+
+def createFluentGiftCardConfig(giftCardDict,brand):
+    giftCardConfig={}
+    programNames=[]
+    for key,value in giftCardDict.items():
+        if key=='epgcProgramName':
+            for item in giftCardDict[key]:
+                programNames.append({key+'.'+brand.lower()+'_'+item['egcCtryCode']:item['egcPgmGroupName']})
+        else:
+            giftCardConfig.append({key,value})
+    
+    giftCardConfig.append({'egcProgramGroupName':programNames})
+    print(giftCardConfig)
+    return giftCardConfig
+
+def updateEcomStoreEntries(storeDict,retailerDict,brandName,tableName):
     for key,value in storeDict.items():
         if(key == 'ecomStoreIds'):
-            for item in value:         
-                #print(prepareStoreJson(retailerDict,item["EcomCountryCode"],storeDict['brandName'],'N'))     
-                updateDDBItem(tableName,{"id":item["id"]},prepareStoreJson(retailerDict,item["EcomCountryCode"],storeDict['brandName'],'N'))
+            for item in value:   
+                #print(prepareStoreJson(retailerDict,item["EcomCountryCode"],brandName,'N'))     
+                updateDDBItem(tableName,{"id":item['EcomLocations']},prepareStoreJson(retailerDict,item["EcomCountryCode"],brandName,'N'))
         elif(key == 'storeIds'):
             for item in value:
-                #print(prepareStoreJson(retailerDict,item["Country"],storeDict['brandName'],item["RedAnt"]))
-                updateDDBItem(tableName,{"id":item["id"]},prepareStoreJson(retailerDict,item["Country"],storeDict['brandName'],item["RedAnt"]))
+                #print(prepareStoreJson(retailerDict,item["Country"],brandName,item["RedAnt"]))
+                updateDDBItem(tableName,{"id":item['Locations']},prepareStoreJson(retailerDict,item["Country"],brandName,item["RedAnt"]))
 
 def prepareStoreJson(retailerDict,countryCode,brandName,redAnt):
 
@@ -158,9 +210,9 @@ def prepareStoreJson(retailerDict,countryCode,brandName,redAnt):
 
 def updateWmsStoreEntries(wmsDict,retailerDict,tableName):
     for key,value in wmsDict.items():
-        for item in value:         
+        for item in value:   
             #print(prepareWmsStoreJson(retailerDict,item["wm9_facility"],item["wm9_storer"]))   
-            updateDDBItem(tableName,{"id":item["id"]},prepareWmsStoreJson(retailerDict,item["wm9_facility"],item["wm9_storer"]))
+            updateDDBItem(tableName,{"id":item['wmsStores']},prepareWmsStoreJson(retailerDict,item["wm9_facility"],item["wm9_storer"]))
             
 
 
@@ -205,7 +257,7 @@ def preparePaymentJson(paymentDict,key):
 
 def updateProductEntries(productDict,tableName1,tableName2):
     print("Update Product ENtries")
-    productIdList = queryDDBItem(tableName1,"FL_P_D",'brands')
+    productIdList = queryDDBItem(tableName1,"FL_P_D",'brands','id')
     if productDict['id'] in productIdList:
         print("Brand code is added in the FL_P_D entry")
     else:
@@ -225,7 +277,7 @@ def updateSiocsInventoryEntries(invDict,tableName,tableName1,tableName2):
     print("Update SIOCS  Entries") 
     for storeKey,storeVal in invDict.items():
         #Update location brand detail
-        brandNames = querySiocsStoreDDBItem(tableName,storeKey,'brandNames')
+        brandNames = queryDDBItem(tableName,storeKey,'brandNames','location')
         if storeVal[0]['brand'] in brandNames['brandNames']:
             print(f"Brand code is added in the "+brandNames['brandNames']+" entry")
         else:
@@ -242,7 +294,7 @@ def updateSiocsInventoryEntries(invDict,tableName,tableName1,tableName2):
                 updateDDBItem(tableName,{"location":str(storeKey)},updateDict)
 
         # Update location brand or location specific key entries
-        brandNames = querySiocsStoreDDBItem(tableName1,storeKey,'brandNames')
+        brandNames = queryDDBItem(tableName1,storeKey,'brandNames','location')
         if storeVal[1]['brandName'] in brandNames['brandNames']:
             print(f"Brand code is added in the "+brandNames['brandNames']+" entry")
         else:
@@ -278,7 +330,7 @@ def createCEConfig(ceConfig,geoConfig,tableName1,tableName2):
 def createCEOrderConfig(ceOrderConfig,tableName1,tableName2):
     orderCEKey = "FL_CE_Order"
     for key in ceOrderConfig:
-        brandList = queryDDBItem(tableName1,orderCEKey,"brands")
+        brandList = queryDDBItem(tableName1,orderCEKey,"brands",'id')
         if key in brandList['brands']:
             print("Brand code is added in the FL_CE_Order entry")
         else:
@@ -291,7 +343,7 @@ def createCEOrderConfig(ceOrderConfig,tableName1,tableName2):
 def createCEReturnOrderConfig(ceReturnOrderConfig,tableName1,tableName2):
     returnOrderCEKey = "FL_CE_Return"
     for key in ceReturnOrderConfig:
-        brandList = queryDDBItem(tableName1,returnOrderCEKey,"brands")
+        brandList = queryDDBItem(tableName1,returnOrderCEKey,"brands",'id')
         if key in brandList['brands']:
             print("Brand code is added in the FL_CE_Return entry")
         else:
@@ -304,7 +356,7 @@ def createCEReturnOrderConfig(ceReturnOrderConfig,tableName1,tableName2):
 def createCEProductFeedConfig(ceProductFeedConfig,tableName1,tableName2):
     productKey="CE_P_D"
     for key in ceProductFeedConfig:
-        brandList = queryDDBItem(tableName1,productKey,"brands")
+        brandList = queryDDBItem(tableName1,productKey,"brands",'id')
         if key in brandList['brands']:
             print("Brand code is added in the CE_P_D entry")
         else:
@@ -343,30 +395,57 @@ def main():
     ceProductFeedConfig={}
     cePriceFeedConfig={}
     ceInventoryFeedConfig={}
+    giftCardDict={}
 
     for sheet in wb:
         if(sheet.title=='Retailer'):
             storeDict.setdefault('storeIds', [])
             storeDict.setdefault('ecomStoreIds', [])
             wmsDict.setdefault('wmsStore',[])
+            giftCardDict.setdefault('egcProgramGroupName',[])
             for row in sheet.iter_rows(min_row=2,max_row=50,values_only=True):
                 if row[0] != None:
-                    retailerDict['retailerId'] = str(row[0])
+                    colName=sheet.cell(row=1,column=1).value
+                    retailerDict[colName]=str(row[0])
                 if row[1] != None:
-                    retailerDict['retailerUsername'] = row[1]
+                     colName=sheet.cell(row=1,column=2).value
+                     retailerDict[colName]=row[1]
                 if row[2] != None:
-                    retailerDict['retailerPwd'] = row[2]
+                    colName=sheet.cell(row=1,column=3).value
+                    retailerDict[colName]=row[2]
                 if row[3] != None:
-                    retailerDict['sfscCaseBrandName'] = row[3]
+                    colName=sheet.cell(row=1,column=4).value
+                    retailerDict[colName]=row[3]
                 if row[4] != None and row[6] != None and row[5]!=None:
-                    storeDict['storeIds'].append({"id":str(row[4]),"RedAnt":row[6],"Country":row[5]})
+                    colName1=sheet.cell(row=1,column=5).value
+                    colName2=sheet.cell(row=1,column=6).value
+                    colName3=sheet.cell(row=1,column=7).value
+                    storeDict['storeIds'].append({colName1:str(row[4]),colName2:row[5],colName3:row[6]})
                 if row[9] != None:
-                    storeDict['brandName'] = row[9]
                     brand=row[9]
                 if row[7] != None:
-                    storeDict['ecomStoreIds'].append({"id":str(row[7]),"EcomCountryCode":row[8]})
+                    colName1=sheet.cell(row=1,column=8).value
+                    colName2=sheet.cell(row=1,column=9).value
+                    storeDict['ecomStoreIds'].append({colName1:str(row[7]),colName2:row[8]})
                 if row[10] != None:
-                    wmsDict['wmsStore'].append({"id":str(row[10]),"WmsCountryCode":row[11],"wm9_facility":row[12],"wm9_storer":row[13]})
+                    colName1=sheet.cell(row=1,column=11).value
+                    colName2=sheet.cell(row=1,column=12).value
+                    colName3=sheet.cell(row=1,column=13).value
+                    colName4=sheet.cell(row=1,column=14).value
+                    wmsDict['wmsStore'].append({colName1:str(row[10]),colName2:row[11],colName3:row[12],colName4:row[13]})
+                if row[14] != None:
+                    colName1=sheet.cell(row=1,column=15).value
+                    colName2=sheet.cell(row=1,column=16).value                    
+                    colName3=sheet.cell(row=1,column=19).value
+                    colName4=sheet.cell(row=1,column=20).value
+                    giftCardDict[colName1]=str(row[14])
+                    giftCardDict[colName2]=row[15]
+                    giftCardDict[colName3]=str(row[18])    
+                    giftCardDict[colName4]=row[19]  
+                if row[16] != None and row[17] != None :
+                    colName1=sheet.cell(row=1,column=17).value
+                    colName2=sheet.cell(row=1,column=18).value
+                    giftCardDict['egcProgramGroupName'].append({colName1:row[16],colName2:row[17]})
         if(sheet.title=='EA_StatusUpdates'):        
             for row in sheet.iter_rows(min_row=2,max_row=10,values_only=True):
                 if(row[0]!=None and row[0]!='DEFAULT'):
@@ -645,12 +724,15 @@ def main():
             print("Create or update retailer details")
             tableName = 'fluent-config-'+env
             #print(prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict,brand))
+            #print(prepareFluentGiftCardConfig(giftCardDict,brand))
             createDDBItem(tableName,prepareRetailerJson(retailerDict,eaUpdateDict,mkUpdateDict,brand))
-            updateDDBItem(tableName,{"id":"fluent_brands"},prepareFluentBrands(brand,retailerDict['retailerId']))    
+            getFluentBrands(tableName,'fluent_brands',retailerDict['retailerId'],brand)    
+            getFluentGiftCardConfig(tableName,'fluent_giftcard_config',giftCardDict,brand)   
+            
         elif args in ("s","store"):
             print("Update store details")
             tableName = 'store-lookup-'+env
-            updateEcomStoreEntries(storeDict,retailerDict,tableName)
+            updateEcomStoreEntries(storeDict,retailerDict,brand,tableName)
         elif args in ("psp","payment"):
             print("Create or Update payment details")
             tableName = 'payment-master-'+env
