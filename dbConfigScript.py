@@ -177,7 +177,6 @@ def createFluentGiftCardConfig(giftCardDict,brand):
             giftCardConfig.append({key,value})
     
     giftCardConfig.append({'egcProgramGroupName':programNames})
-    print(giftCardConfig)
     return giftCardConfig
 
 def updateEcomStoreEntries(storeDict,retailerDict,brandName,tableName):
@@ -320,11 +319,9 @@ def updateSiocsInventoryEntries(invDict,tableName,tableName1,tableName2):
         createDDBItem(tableName2,siocsJson)
 
 def createCEConfig(ceConfig,geoConfig,tableName1,tableName2):
-    for key in ceConfig:
-        print(ceConfig[key])        
+    for key in ceConfig:      
         createDDBItem(tableName1,ceConfig[key])
     for key in geoConfig:
-        print(geoConfig[key])
         createDDBItem(tableName2,geoConfig[key])
 
 def createCEOrderConfig(ceOrderConfig,tableName1,tableName2):
@@ -338,7 +335,7 @@ def createCEOrderConfig(ceOrderConfig,tableName1,tableName2):
             expressionValues = {':val1':brandList['brands']+","+key}
             updateDict = updateBrandExpr, expressionValues
             updateDDBItem(tableName1,{"id":orderCEKey},updateDict)
-        
+
         createDDBItem(tableName2,ceOrderConfig[key])
 def createCEReturnOrderConfig(ceReturnOrderConfig,tableName1,tableName2):
     returnOrderCEKey = "FL_CE_Return"
@@ -623,38 +620,35 @@ def main():
         if(sheet.title=='CEOrder'): 
             for row in sheet.iter_rows(min_row=2):
                 ceOrderConfig[row[0].value]={}
-                marketPlaceCols = []
+                marketPlaceJson={}
+                marketPlaceCols = {}
                 for i,col in enumerate(sheet.iter_cols(min_col=1)):
                     colName = col[0].value
                     if "_" in colName:
                         nameArr = colName.split("_")
                         marketplace = nameArr[0]
                         destnColumn = nameArr[1]
-                        marketPlaceCols.append({destnColumn:row[i].value})
+                        marketPlaceCols.update({destnColumn:row[i].value})
+                        marketPlaceJson.update({marketplace:marketPlaceCols})
                     else:
                         ceOrderConfig[row[0].value].update({colName:row[i].value})
-                sourceJson = {}
-                for source in marketPlaceCols:
-                    sourceJson.update(source)
-                ceOrderConfig.get(row[0].value).update({marketplace:sourceJson})
-
+                ceOrderConfig.get(row[0].value).update(marketPlaceJson)
         if(sheet.title=='CEReturn'): 
             for row in sheet.iter_rows(min_row=2):
                 ceReturnOrderConfig[row[0].value]={}
-                marketPlaceCols = []
+                marketPlaceJson={}
+                marketPlaceCols = {}
                 for i,col in enumerate(sheet.iter_cols(min_col=1)):
                     colName = col[0].value
                     if "_" in colName:
                         nameArr = colName.split("_")
                         marketplace = nameArr[0]
                         destnColumn = nameArr[1]
-                        marketPlaceCols.append({destnColumn:row[i].value})
+                        marketPlaceCols.update({destnColumn:row[i].value})
+                        marketPlaceJson.update({marketplace:marketPlaceCols})
                     else:
                         ceReturnOrderConfig[row[0].value].update({colName:row[i].value})
-                sourceJson = {}
-                for source in marketPlaceCols:
-                    sourceJson.update(source)
-                ceReturnOrderConfig[row[0].value].update({marketplace:sourceJson})
+                ceReturnOrderConfig[row[0].value].update(marketPlaceJson)
 
         if(sheet.title=='CEProduct'): 
             for row in sheet.iter_rows(min_row=2):
